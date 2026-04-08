@@ -1,0 +1,79 @@
+import axios from 'axios'
+
+export interface ApiResponse<T> {
+  success: boolean
+  data: T
+  message: string | null
+}
+
+export interface PageResponse<T> {
+  items: T[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface ClipItem {
+  id: number
+  type: string
+  subType: string | null
+  title: string
+  previewText: string
+  copyCount: number
+  lastCopiedAt: string
+  isFavorite: boolean
+  sensitivityLevel: string
+}
+
+export interface ClipDetail extends ClipItem {
+  content: string
+  firstCopiedAt: string
+  isIgnored: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AppSettings {
+  listenerEnabled: boolean
+  pollIntervalMs: number
+  minTextLength: number
+  ignoreSensitiveEnabled: boolean
+}
+
+const client = axios.create({
+  baseURL: '/api'
+})
+
+async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>): Promise<T> {
+  const response = await promise
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Request failed')
+  }
+  return response.data.data
+}
+
+export function fetchClips(keyword: string) {
+  return unwrap<PageResponse<ClipItem>>(client.get('/clips', {
+    params: { keyword, page: 1, pageSize: 50 }
+  }))
+}
+
+export function fetchClip(id: number) {
+  return unwrap<ClipDetail>(client.get(`/clips/${id}`))
+}
+
+export function copyClip(id: number) {
+  return unwrap(client.post(`/clips/${id}/copy`))
+}
+
+export function deleteClip(id: number) {
+  return unwrap(client.delete(`/clips/${id}`))
+}
+
+export function fetchSettings() {
+  return unwrap<AppSettings>(client.get('/settings'))
+}
+
+export function saveSettings(settings: AppSettings) {
+  return unwrap<AppSettings>(client.put('/settings', settings))
+}

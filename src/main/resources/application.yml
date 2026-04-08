@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: smartclip
+  main:
+    headless: false
+  datasource:
+    driver-class-name: org.sqlite.JDBC
+    url: jdbc:sqlite:data/smartclip.db
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
+  type-handlers-package: com.smartclip.common.mybatis
+  type-enums-package: com.smartclip.clip.enums
+  global-config:
+    banner: false
+
+smartclip:
+  data-dir: data
+  scheduler:
+    tick-ms: 500
