@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -52,6 +53,24 @@ public class ClipItemController {
      */
     public ApiResponse<ClipCopyResponse> copy(@PathVariable @Min(1) Long id) {
         return ApiResponse.ok(clipItemService.copyToClipboard(id));
+    }
+
+    @PutMapping("/{id}/favorite")
+    public ApiResponse<Void> favorite(@PathVariable @Min(1) Long id) {
+        clipItemService.setFavorite(id, true);
+        return ApiResponse.ok(null);
+    }
+
+    @DeleteMapping("/{id}/favorite")
+    public ApiResponse<Void> unfavorite(@PathVariable @Min(1) Long id) {
+        clipItemService.setFavorite(id, false);
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/{id}/restore")
+    public ApiResponse<Void> restore(@PathVariable @Min(1) Long id) {
+        clipItemService.restore(id);
+        return ApiResponse.ok(null);
     }
 
     @DeleteMapping("/{id}")

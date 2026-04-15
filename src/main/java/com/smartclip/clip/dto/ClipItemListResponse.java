@@ -24,5 +24,6 @@ public class ClipItemListResponse {
     private Integer copyCount;
     private LocalDateTime lastCopiedAt;
     private Boolean isFavorite;
+    private Boolean isIgnored;
     private SensitivityLevel sensitivityLevel;
 }

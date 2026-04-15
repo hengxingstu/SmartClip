@@ -13,6 +13,8 @@ export interface PageResponse<T> {
   total: number
 }
 
+export type ClipListView = 'history' | 'favorites' | 'frequent' | 'ignored'
+
 export interface ClipItem {
   id: number
   type: string
@@ -22,6 +24,7 @@ export interface ClipItem {
   copyCount: number
   lastCopiedAt: string
   isFavorite: boolean
+  isIgnored: boolean
   sensitivityLevel: string
 }
 
@@ -52,9 +55,15 @@ async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>): Promise<T>
   return response.data.data
 }
 
-export function fetchClips(keyword: string) {
+export function fetchClips(keyword: string, type = '', view: ClipListView = 'history') {
   return unwrap<PageResponse<ClipItem>>(client.get('/clips', {
-    params: { keyword, page: 1, pageSize: 50 }
+    params: {
+      keyword,
+      type: type || undefined,
+      view,
+      page: 1,
+      pageSize: 50
+    }
   }))
 }
 
@@ -68,6 +77,18 @@ export function copyClip(id: number) {
 
 export function deleteClip(id: number) {
   return unwrap(client.delete(`/clips/${id}`))
+}
+
+export function favoriteClip(id: number) {
+  return unwrap(client.put(`/clips/${id}/favorite`))
+}
+
+export function unfavoriteClip(id: number) {
+  return unwrap(client.delete(`/clips/${id}/favorite`))
+}
+
+export function restoreClip(id: number) {
+  return unwrap(client.post(`/clips/${id}/restore`))
 }
 
 export function fetchSettings() {

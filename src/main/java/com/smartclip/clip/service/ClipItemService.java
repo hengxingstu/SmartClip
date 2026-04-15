@@ -13,7 +13,7 @@ import com.smartclip.clip.dto.ClipItemListResponse;
 import com.smartclip.clip.dto.ClipSearchRequest;
 import com.smartclip.clip.entity.ClipEvent;
 import com.smartclip.clip.entity.ClipItem;
-import com.smartclip.clip.enums.ClipType;
+import com.smartclip.clip.enums.ClipListView;
 import com.smartclip.clip.enums.SensitivityLevel;
 import com.smartclip.clip.mapper.ClipEventMapper;
 import com.smartclip.clip.mapper.ClipItemMapper;
@@ -99,12 +99,9 @@ public class ClipItemService {
      */
     public PageResponse<ClipItemListResponse> search(ClipSearchRequest request) {
         Page<ClipItem> page = Page.of(request.getPage(), request.getPageSize());
-        LambdaQueryWrapper<ClipItem> query = Wrappers.<ClipItem>lambdaQuery()
-                .orderByDesc(ClipItem::getLastCopiedAt);
+        LambdaQueryWrapper<ClipItem> query = Wrappers.<ClipItem>lambdaQuery();
 
-        if (!request.isIncludeIgnored()) {
-            query.eq(ClipItem::getIsIgnored, false);
-        }
+        applyViewFilter(request, query);
         if (request.getType() != null) {
             query.eq(ClipItem::getType, request.getType());
         }
@@ -162,6 +159,22 @@ public class ClipItemService {
         clipItemMapper.updateById(item);
     }
 
+    @Transactional
+    public void setFavorite(Long id, boolean favorite) {
+        ClipItem item = requireItem(id);
+        item.setIsFavorite(favorite);
+        item.setUpdatedAt(LocalDateTime.now());
+        clipItemMapper.updateById(item);
+    }
+
+    @Transactional
+    public void restore(Long id) {
+        ClipItem item = requireItem(id);
+        item.setIsIgnored(false);
+        item.setUpdatedAt(LocalDateTime.now());
+        clipItemMapper.updateById(item);
+    }
+
     /**
      * 查询记录并在不存在时抛出业务异常，统一处理未找到场景。
      */
@@ -180,6 +193,31 @@ public class ClipItemService {
         return clipItemMapper.selectOne(Wrappers.<ClipItem>lambdaQuery()
                 .eq(ClipItem::getContentHash, contentHash)
                 .last("LIMIT 1"));
+    }
+
+    private void applyViewFilter(ClipSearchRequest request, LambdaQueryWrapper<ClipItem> query) {
+        ClipListView view = request.getView();
+        if (view == null) {
+            if (!request.isIncludeIgnored()) {
+                query.eq(ClipItem::getIsIgnored, false);
+            }
+            query.orderByDesc(ClipItem::getLastCopiedAt);
+            return;
+        }
+
+        switch (view) {
+            case HISTORY -> query.eq(ClipItem::getIsIgnored, false)
+                    .orderByDesc(ClipItem::getLastCopiedAt);
+            case FAVORITES -> query.eq(ClipItem::getIsIgnored, false)
+                    .eq(ClipItem::getIsFavorite, true)
+                    .orderByDesc(ClipItem::getLastCopiedAt);
+            case FREQUENT -> query.eq(ClipItem::getIsIgnored, false)
+                    .orderByDesc(ClipItem::getCopyCount)
+                    .orderByDesc(ClipItem::getLastCopiedAt);
+            case IGNORED -> query.eq(ClipItem::getIsIgnored, true)
+                    .orderByDesc(ClipItem::getLastCopiedAt);
+            default -> query.orderByDesc(ClipItem::getLastCopiedAt);
+        }
     }
 
     /**
@@ -203,6 +241,7 @@ public class ClipItemService {
                 item.getCopyCount(),
                 item.getLastCopiedAt(),
                 item.getIsFavorite(),
+                item.getIsIgnored(),
                 item.getSensitivityLevel()
         );
     }

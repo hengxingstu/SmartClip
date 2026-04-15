@@ -1,6 +1,7 @@
 package com.smartclip.clip.dto;
 
 import com.smartclip.clip.enums.ClipType;
+import com.smartclip.clip.enums.ClipListView;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.Data;
@@ -13,6 +14,7 @@ public class ClipSearchRequest {
 
     private String keyword;
     private ClipType type;
+    private ClipListView view;
 
     @Min(1)
     private long page = 1;
