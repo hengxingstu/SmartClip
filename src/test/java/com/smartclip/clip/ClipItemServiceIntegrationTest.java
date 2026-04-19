@@ -8,10 +8,12 @@ import java.util.UUID;
 import com.smartclip.clip.dto.ClipItemDetailResponse;
 import com.smartclip.clip.dto.ClipItemListResponse;
 import com.smartclip.clip.dto.ClipSearchRequest;
+import com.smartclip.clip.dto.TagResponse;
 import com.smartclip.clip.entity.ClipItem;
 import com.smartclip.clip.enums.ClipListView;
 import com.smartclip.clip.enums.ClipType;
 import com.smartclip.clip.service.ClipItemService;
+import com.smartclip.clip.service.TagService;
 import com.smartclip.common.api.PageResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,16 +26,19 @@ import org.springframework.boot.test.context.SpringBootTest;
         "spring.task.scheduling.enabled=false"
 })
 /**
- * 剪贴板内容服务集成测试，覆盖 SQLite 持久化、去重和查询链路。
+ * 剪贴板内容服务集成测试，覆盖 SQLite 持久化、去重、视图筛选和标签联动链路。
  */
 class ClipItemServiceIntegrationTest {
 
     @Autowired
     private ClipItemService clipItemService;
 
+    @Autowired
+    private TagService tagService;
+
     @Test
     /**
-     * 验证相同文本只生成一个 ClipItem，并累加复制次数。
+     * 这个用例验证相同文本只会生成一条主记录，并通过重复采集累计 copyCount 和事件信息。
      */
     void capturesAndDeduplicatesText() {
         String marker = UUID.randomUUID().toString();
@@ -52,6 +57,8 @@ class ClipItemServiceIntegrationTest {
         assertThat(detail.getContent()).isEqualTo(content);
         assertThat(detail.getFirstCopiedAt()).isNotNull();
         assertThat(detail.getLastCopiedAt()).isNotNull();
+        assertThat(detail.getSubType()).isEqualTo("GENERAL");
+        assertThat(detail.getTags()).extracting(TagResponse::getName).contains("url");
 
         ClipSearchRequest request = new ClipSearchRequest();
         request.setKeyword(marker);
@@ -61,7 +68,7 @@ class ClipItemServiceIntegrationTest {
 
     @Test
     /**
-     * 楠岃瘉鏀惰棌瑙嗗浘浠呰繑鍥炲凡鏀惰棌涓旀湭蹇界暐鐨勫唴瀹癸紝鍙栨秷鏀惰棌鍚庡簲浠庤鍥句腑娑堝け銆?
+     * 这个用例验证收藏视图只返回已收藏的记录，并且取消收藏后会立即从该视图消失。
      */
     void filtersFavoritesView() {
         String marker = UUID.randomUUID().toString();
@@ -88,7 +95,7 @@ class ClipItemServiceIntegrationTest {
 
     @Test
     /**
-     * 楠岃瘉蹇界暐鍚庤褰曚粠鏅€氬巻鍙蹭腑闅愯棌锛屼粎鍦?ignored 瑙嗗浘鍙锛屾仮澶嶅悗鍙噸鏂板嚭鐜般€?
+     * 这个用例验证被忽略的内容不会出现在历史视图中，但仍能在 ignored 视图中找回并恢复。
      */
     void hidesIgnoredItemsUntilTheyAreRestored() {
         String marker = UUID.randomUUID().toString();
@@ -121,7 +128,7 @@ class ClipItemServiceIntegrationTest {
 
     @Test
     /**
-     * 楠岃瘉楂橀瑙嗗浘鎸?copyCount 鍜?lastCopiedAt 鍊掑簭鎺掑簭锛岄珮棰戝唴瀹逛紭鍏堝睍绀恒€?
+     * 这个用例验证高频视图会优先按复制次数排序，并在次数相同时再比较最后复制时间。
      */
     void sortsFrequentViewByCopyCountThenLastCopiedAt() {
         String marker = UUID.randomUUID().toString();
@@ -145,5 +152,47 @@ class ClipItemServiceIntegrationTest {
         assertThat(page.getItems().get(0).getCopyCount()).isEqualTo(3);
         assertThat(page.getItems().get(1).getId()).isEqualTo(next.getId());
         assertThat(page.getItems().get(1).getCopyCount()).isEqualTo(2);
+    }
+
+    @Test
+    /**
+     * 这个用例验证新采集的 GitHub URL 会自动带上分类标签，并支持按标签过滤搜索结果。
+     */
+    void autoTagsNewClipsAndFiltersByTag() {
+        String marker = UUID.randomUUID().toString();
+        ClipItem item = clipItemService.captureText("https://github.com/HengxingStu/SmartClip?marker=" + marker)
+                .orElseThrow();
+
+        ClipItemDetailResponse detail = clipItemService.getDetail(item.getId());
+        assertThat(detail.getSubType()).isEqualTo("GITHUB");
+        assertThat(detail.getTags()).extracting(TagResponse::getName).contains("url", "github");
+
+        ClipSearchRequest request = new ClipSearchRequest();
+        request.setKeyword(marker);
+        request.setTag("github");
+
+        PageResponse<ClipItemListResponse> page = clipItemService.search(request);
+        assertThat(page.getItems()).hasSize(1);
+        assertThat(page.getItems().get(0).getId()).isEqualTo(item.getId());
+        assertThat(page.getItems().get(0).getTags()).extracting(TagResponse::getName).contains("github");
+    }
+
+    @Test
+    /**
+     * 这个用例验证重复采集已存在内容时不会重置人工维护过的标签集合。
+     */
+    void repeatedCaptureDoesNotResetManualTags() {
+        String marker = UUID.randomUUID().toString();
+        String content = "select * from clip_item where title = '" + marker + "'";
+        ClipItem item = clipItemService.captureText(content).orElseThrow();
+
+        tagService.replaceClipTags(item.getId(), java.util.List.of("manual_" + marker.substring(0, 8)));
+        clipItemService.captureText(content);
+
+        ClipItemDetailResponse detail = clipItemService.getDetail(item.getId());
+        assertThat(detail.getCopyCount()).isEqualTo(2);
+        assertThat(detail.getTags()).extracting(TagResponse::getName)
+                .containsExactly("manual_" + marker.substring(0, 8));
+        assertThat(detail.getSubType()).isEqualTo("SELECT");
     }
 }

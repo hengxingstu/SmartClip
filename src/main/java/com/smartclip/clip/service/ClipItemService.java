@@ -1,7 +1,10 @@
 package com.smartclip.clip.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -11,12 +14,14 @@ import com.smartclip.clip.dto.ClipCopyResponse;
 import com.smartclip.clip.dto.ClipItemDetailResponse;
 import com.smartclip.clip.dto.ClipItemListResponse;
 import com.smartclip.clip.dto.ClipSearchRequest;
+import com.smartclip.clip.dto.TagResponse;
 import com.smartclip.clip.entity.ClipEvent;
 import com.smartclip.clip.entity.ClipItem;
 import com.smartclip.clip.enums.ClipListView;
 import com.smartclip.clip.enums.SensitivityLevel;
 import com.smartclip.clip.mapper.ClipEventMapper;
 import com.smartclip.clip.mapper.ClipItemMapper;
+import com.smartclip.clip.model.ClipClassification;
 import com.smartclip.clipboard.ClipboardService;
 import com.smartclip.common.api.PageResponse;
 import com.smartclip.common.exception.NotFoundException;
@@ -36,11 +41,12 @@ public class ClipItemService {
 
     private final ClipItemMapper clipItemMapper;
     private final ClipEventMapper clipEventMapper;
-    private final ClipTypeDetectService clipTypeDetectService;
+    private final ClipClassificationService clipClassificationService;
     private final ClipPreviewService clipPreviewService;
     private final SensitivityDetectService sensitivityDetectService;
     private final AppSettingService appSettingService;
     private final ClipboardService clipboardService;
+    private final TagService tagService;
 
     @Transactional
     /**
@@ -74,12 +80,13 @@ public class ClipItemService {
             return Optional.of(existing);
         }
 
+        ClipClassification classification = clipClassificationService.classify(content);
         ClipItem item = new ClipItem();
         item.setContent(content);
         item.setContentHash(contentHash);
-        item.setType(clipTypeDetectService.detect(content));
-        item.setSubType(null);
-        item.setTitle(clipPreviewService.buildTitle(content));
+        item.setType(classification.type());
+        item.setSubType(classification.subType());
+        item.setTitle(classification.title());
         item.setPreviewText(clipPreviewService.buildPreview(content));
         item.setCopyCount(1);
         item.setFirstCopiedAt(now);
@@ -91,6 +98,7 @@ public class ClipItemService {
         item.setUpdatedAt(now);
         clipItemMapper.insert(item);
         insertEvent(item.getId(), now, content);
+        tagService.autoApplyTags(item.getId(), classification.tagNames());
         return Optional.of(item);
     }
 
@@ -102,6 +110,13 @@ public class ClipItemService {
         LambdaQueryWrapper<ClipItem> query = Wrappers.<ClipItem>lambdaQuery();
 
         applyViewFilter(request, query);
+        if (StringUtils.hasText(request.getTag())) {
+            Set<Long> clipIds = tagService.findClipIdsByTag(request.getTag());
+            if (clipIds.isEmpty()) {
+                return new PageResponse<>(List.of(), request.getPage(), request.getPageSize(), 0);
+            }
+            query.in(ClipItem::getId, clipIds);
+        }
         if (request.getType() != null) {
             query.eq(ClipItem::getType, request.getType());
         }
@@ -115,8 +130,11 @@ public class ClipItemService {
         }
 
         IPage<ClipItem> result = clipItemMapper.selectPage(page, query);
+        List<ClipItem> records = result.getRecords();
+        Map<Long, List<TagResponse>> tagsByClipId = tagService.listTagsByClipIds(
+                records.stream().map(ClipItem::getId).toList());
         return new PageResponse<>(
-                result.getRecords().stream().map(this::toListResponse).toList(),
+                records.stream().map(item -> toListResponse(item, tagsByClipId.getOrDefault(item.getId(), List.of()))).toList(),
                 result.getCurrent(),
                 result.getSize(),
                 result.getTotal()
@@ -127,7 +145,7 @@ public class ClipItemService {
      * 按 ID 查询完整剪贴板内容详情。
      */
     public ClipItemDetailResponse getDetail(Long id) {
-        return toDetailResponse(requireItem(id));
+        return toDetailResponse(requireItem(id), tagService.listClipTags(id));
     }
 
     @Transactional
@@ -231,7 +249,7 @@ public class ClipItemService {
         clipEventMapper.insert(event);
     }
 
-    private ClipItemListResponse toListResponse(ClipItem item) {
+    private ClipItemListResponse toListResponse(ClipItem item, List<TagResponse> tags) {
         return new ClipItemListResponse(
                 item.getId(),
                 item.getType(),
@@ -242,11 +260,12 @@ public class ClipItemService {
                 item.getLastCopiedAt(),
                 item.getIsFavorite(),
                 item.getIsIgnored(),
-                item.getSensitivityLevel()
+                item.getSensitivityLevel(),
+                tags
         );
     }
 
-    private ClipItemDetailResponse toDetailResponse(ClipItem item) {
+    private ClipItemDetailResponse toDetailResponse(ClipItem item, List<TagResponse> tags) {
         return new ClipItemDetailResponse(
                 item.getId(),
                 item.getContent(),
@@ -261,7 +280,8 @@ public class ClipItemService {
                 item.getIsIgnored(),
                 item.getSensitivityLevel(),
                 item.getCreatedAt(),
-                item.getUpdatedAt()
+                item.getUpdatedAt(),
+                tags
         );
     }
 }

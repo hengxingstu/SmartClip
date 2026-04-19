@@ -15,6 +15,7 @@ public class ClipSearchRequest {
     private String keyword;
     private ClipType type;
     private ClipListView view;
+    private String tag;
 
     @Min(1)
     private long page = 1;

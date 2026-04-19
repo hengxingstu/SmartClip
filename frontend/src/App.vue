@@ -73,9 +73,11 @@
             <div class="clip-main">
               <div class="clip-type-row">
                 <div class="clip-type">{{ clip.type }}</div>
+                <span v-if="clip.subType" class="clip-subtype">{{ formatSubtype(clip.subType) }}</span>
                 <span v-if="clip.isFavorite" class="clip-badge">Favorite</span>
               </div>
-              <p class="clip-preview">{{ clip.previewText }}</p>
+              <h3 class="clip-title">{{ clip.title || clip.previewText }}</h3>
+              <p v-if="shouldShowPreview(clip)" class="clip-preview">{{ clip.previewText }}</p>
               <div class="clip-meta-row">
                 <span>{{ clip.copyCount }} copies</span>
                 <span>{{ formatTime(clip.lastCopiedAt) }}</span>
@@ -149,7 +151,8 @@
     <el-dialog v-model="detailVisible" title="Clip details" width="min(760px, 92vw)" class="detail-dialog">
       <template v-if="detail">
         <p class="detail-meta">
-          {{ detail.type }} | first {{ formatTime(detail.firstCopiedAt) }} | last
+          {{ detail.type }}<template v-if="detail.subType"> / {{ formatSubtype(detail.subType) }}</template>
+          | first {{ formatTime(detail.firstCopiedAt) }} | last
           {{ formatTime(detail.lastCopiedAt) }} | {{ detail.copyCount }} copies
         </p>
         <pre>{{ detail.content }}</pre>
@@ -331,6 +334,19 @@ function resetSettings() {
 
 function formatTime(value: string) {
   return value ? value.replace('T', ' ').slice(0, 19) : ''
+}
+
+function formatSubtype(value: string) {
+  return value
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char: string) => char.toUpperCase())
+}
+
+function shouldShowPreview(clip: ClipItem) {
+  const title = (clip.title || '').trim()
+  const preview = (clip.previewText || '').trim()
+  return Boolean(preview) && title !== preview
 }
 
 watch(activeView, (view) => {

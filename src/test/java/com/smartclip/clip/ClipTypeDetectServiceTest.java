@@ -9,7 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * 文本类型识别服务单元测试，覆盖 MVP 要求中的主要类型判断。
+ * 文本类型识别服务单元测试，覆盖 MVP 阶段需要支持的主要类型判断。
  */
 class ClipTypeDetectServiceTest {
 
@@ -17,7 +17,7 @@ class ClipTypeDetectServiceTest {
 
     @BeforeEach
     /**
-     * 每个用例前创建独立服务实例，避免状态污染。
+     * 每个用例执行前都创建新的服务实例，避免测试之间共享状态。
      */
     void setUp() {
         service = new ClipTypeDetectService(new ObjectMapper());
@@ -25,7 +25,7 @@ class ClipTypeDetectServiceTest {
 
     @Test
     /**
-     * 验证 URL 文本识别。
+     * 这个用例验证标准 HTTP URL 会被识别为 URL 类型。
      */
     void detectsUrl() {
         assertThat(service.detect("https://example.com/docs")).isEqualTo(ClipType.URL);
@@ -33,7 +33,7 @@ class ClipTypeDetectServiceTest {
 
     @Test
     /**
-     * 验证 JSON 文本识别。
+     * 这个用例验证 JSON 对象字符串会被识别为 JSON 类型。
      */
     void detectsJson() {
         assertThat(service.detect("{\"name\":\"SmartClip\"}")).isEqualTo(ClipType.JSON);
@@ -41,7 +41,7 @@ class ClipTypeDetectServiceTest {
 
     @Test
     /**
-     * 验证 SQL 文本识别。
+     * 这个用例验证常见 SQL 查询语句会被识别为 SQL 类型。
      */
     void detectsSql() {
         assertThat(service.detect("select * from clip_item")).isEqualTo(ClipType.SQL);
@@ -49,7 +49,7 @@ class ClipTypeDetectServiceTest {
 
     @Test
     /**
-     * 验证 Java 异常堆栈日志识别。
+     * 这个用例验证 Java 异常堆栈日志会被识别为异常日志类型。
      */
     void detectsJavaExceptionLog() {
         String log = """
@@ -61,7 +61,7 @@ class ClipTypeDetectServiceTest {
 
     @Test
     /**
-     * 验证无法匹配特征时回退为普通文本。
+     * 这个用例验证当文本不匹配任何特殊规则时会回退为普通文本类型。
      */
     void fallsBackToText() {
         assertThat(service.detect("plain note")).isEqualTo(ClipType.TEXT);

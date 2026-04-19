@@ -1,6 +1,7 @@
 package com.smartclip.clip.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.smartclip.clip.enums.ClipType;
 import com.smartclip.clip.enums.SensitivityLevel;
@@ -30,4 +31,5 @@ public class ClipItemDetailResponse {
     private SensitivityLevel sensitivityLevel;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<TagResponse> tags;
 }

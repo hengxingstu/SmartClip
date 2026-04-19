@@ -1,10 +1,15 @@
 package com.smartclip.clip.controller;
 
+import java.util.List;
+
 import com.smartclip.clip.dto.ClipCopyResponse;
 import com.smartclip.clip.dto.ClipItemDetailResponse;
 import com.smartclip.clip.dto.ClipItemListResponse;
 import com.smartclip.clip.dto.ClipSearchRequest;
+import com.smartclip.clip.dto.ClipTagUpdateRequest;
+import com.smartclip.clip.dto.TagResponse;
 import com.smartclip.clip.service.ClipItemService;
+import com.smartclip.clip.service.TagService;
 import com.smartclip.common.api.ApiResponse;
 import com.smartclip.common.api.PageResponse;
 import jakarta.validation.Valid;
@@ -17,6 +22,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ClipItemController {
 
     private final ClipItemService clipItemService;
+    private final TagService tagService;
 
     @GetMapping
     /**
@@ -53,6 +60,18 @@ public class ClipItemController {
      */
     public ApiResponse<ClipCopyResponse> copy(@PathVariable @Min(1) Long id) {
         return ApiResponse.ok(clipItemService.copyToClipboard(id));
+    }
+
+    @GetMapping("/{id}/tags")
+    public ApiResponse<List<TagResponse>> tags(@PathVariable @Min(1) Long id) {
+        return ApiResponse.ok(tagService.listClipTags(id));
+    }
+
+    @PutMapping("/{id}/tags")
+    public ApiResponse<List<TagResponse>> replaceTags(
+            @PathVariable @Min(1) Long id,
+            @Valid @RequestBody ClipTagUpdateRequest request) {
+        return ApiResponse.ok(tagService.replaceClipTags(id, request.getNames()));
     }
 
     @PutMapping("/{id}/favorite")
