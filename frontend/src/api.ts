@@ -15,6 +15,13 @@ export interface PageResponse<T> {
 
 export type ClipListView = 'history' | 'favorites' | 'frequent' | 'ignored'
 
+export interface TagItem {
+  id: number
+  name: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface ClipItem {
   id: number
   type: string
@@ -26,6 +33,7 @@ export interface ClipItem {
   isFavorite: boolean
   isIgnored: boolean
   sensitivityLevel: string
+  tags: TagItem[]
 }
 
 export interface ClipDetail extends ClipItem {
@@ -55,12 +63,13 @@ async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>): Promise<T>
   return response.data.data
 }
 
-export function fetchClips(keyword: string, type = '', view: ClipListView = 'history') {
+export function fetchClips(keyword: string, type = '', view: ClipListView = 'history', tag = '') {
   return unwrap<PageResponse<ClipItem>>(client.get('/clips', {
     params: {
       keyword,
       type: type || undefined,
       view,
+      tag: tag || undefined,
       page: 1,
       pageSize: 50
     }
@@ -97,4 +106,18 @@ export function fetchSettings() {
 
 export function saveSettings(settings: AppSettings) {
   return unwrap<AppSettings>(client.put('/settings', settings))
+}
+
+export function fetchTags(keyword = '') {
+  return unwrap<PageResponse<TagItem>>(client.get('/tags', {
+    params: {
+      keyword: keyword || undefined,
+      page: 1,
+      pageSize: 20
+    }
+  }))
+}
+
+export function replaceClipTags(id: number, names: string[]) {
+  return unwrap<TagItem[]>(client.put(`/clips/${id}/tags`, { names }))
 }

@@ -65,7 +65,34 @@
               :value="item"
             />
           </el-select>
+          <el-select
+            v-model="selectedTag"
+            filterable
+            clearable
+            remote
+            reserve-keyword
+            placeholder="Filter by tag"
+            :remote-method="searchTagOptions"
+            :loading="tagOptionsLoading"
+            @visible-change="handleTagFilterVisible"
+            @change="loadClips"
+          >
+            <el-option
+              v-for="tag in tagOptions"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.name"
+            />
+          </el-select>
           <el-button @click="loadClips">Refresh</el-button>
+        </div>
+
+        <div v-if="selectedTag" class="active-filter-row">
+          <span class="active-filter-label">Tag filter</span>
+          <button class="active-tag-chip" type="button" @click="clearTagFilter">
+            {{ selectedTag }}
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
 
         <div v-if="clips.length" class="clip-list">
@@ -78,6 +105,17 @@
               </div>
               <h3 class="clip-title">{{ clip.title || clip.previewText }}</h3>
               <p v-if="shouldShowPreview(clip)" class="clip-preview">{{ clip.previewText }}</p>
+              <div v-if="clip.tags?.length" class="clip-tag-row">
+                <button
+                  v-for="tag in clip.tags"
+                  :key="tag.id"
+                  type="button"
+                  class="clip-tag"
+                  @click="applyTagFilter(tag.name)"
+                >
+                  {{ tag.name }}
+                </button>
+              </div>
               <div class="clip-meta-row">
                 <span>{{ clip.copyCount }} copies</span>
                 <span>{{ formatTime(clip.lastCopiedAt) }}</span>
@@ -155,6 +193,57 @@
           | first {{ formatTime(detail.firstCopiedAt) }} | last
           {{ formatTime(detail.lastCopiedAt) }} | {{ detail.copyCount }} copies
         </p>
+
+        <section class="detail-section">
+          <div class="detail-section-header">
+            <div>
+              <h3>Tags</h3>
+              <p>Edit tags for this clip or add a new one directly from here.</p>
+            </div>
+            <el-button
+              type="primary"
+              :loading="tagSaving"
+              @click="saveDetailTags"
+            >
+              Save tags
+            </el-button>
+          </div>
+
+          <el-select
+            v-model="detailTagNames"
+            class="detail-tag-editor"
+            multiple
+            filterable
+            remote
+            allow-create
+            default-first-option
+            reserve-keyword
+            placeholder="Type a tag and press Enter"
+            :remote-method="searchTagOptions"
+            :loading="tagOptionsLoading"
+            @visible-change="handleDetailTagVisible"
+          >
+            <el-option
+              v-for="tag in tagOptions"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.name"
+            />
+          </el-select>
+
+          <div v-if="detail.tags?.length" class="detail-tag-list">
+            <button
+              v-for="tag in detail.tags"
+              :key="tag.id"
+              type="button"
+              class="detail-tag-chip"
+              @click="applyTagFilterFromDetail(tag.name)"
+            >
+              {{ tag.name }}
+            </button>
+          </div>
+        </section>
+
         <pre>{{ detail.content }}</pre>
       </template>
     </el-dialog>
@@ -169,12 +258,15 @@ import {
   type ClipDetail,
   type ClipItem,
   type ClipListView,
+  type TagItem,
   favoriteClip,
   copyClip,
   deleteClip,
   fetchClip,
   fetchClips,
   fetchSettings,
+  fetchTags,
+  replaceClipTags,
   restoreClip,
   saveSettings,
   unfavoriteClip
@@ -202,11 +294,16 @@ const activeView = ref<AppView>('history')
 const lastListView = ref<ClipListView>('history')
 const keyword = ref('')
 const selectedType = ref('')
+const selectedTag = ref('')
 const clips = ref<ClipItem[]>([])
 const totalClips = ref(0)
 const detail = ref<ClipDetail | null>(null)
 const detailVisible = ref(false)
+const detailTagNames = ref<string[]>([])
 const settings = ref<AppSettings | null>(null)
+const tagOptions = ref<TagItem[]>([])
+const tagOptionsLoading = ref(false)
+const tagSaving = ref(false)
 
 const isSettingsView = computed(() => activeView.value === 'settings')
 
@@ -233,13 +330,17 @@ const summaryMeta = computed(() => {
   if (!clips.value.length) {
     return 'Your copied text will appear here after the next refresh.'
   }
+  const filterMeta = selectedTag.value ? ` | tag ${selectedTag.value}` : ''
   if (currentListView.value === 'frequent') {
-    return `${clips.value[0].copyCount} copies | latest ${formatTime(clips.value[0].lastCopiedAt)}`
+    return `${clips.value[0].copyCount} copies | latest ${formatTime(clips.value[0].lastCopiedAt)}${filterMeta}`
   }
-  return `Latest saved at ${formatTime(clips.value[0].lastCopiedAt)}`
+  return `Latest saved at ${formatTime(clips.value[0].lastCopiedAt)}${filterMeta}`
 })
 
 const emptyTitle = computed(() => {
+  if (selectedTag.value) {
+    return 'No clips match this tag.'
+  }
   switch (currentListView.value) {
     case 'favorites':
       return 'No favorites yet.'
@@ -253,6 +354,9 @@ const emptyTitle = computed(() => {
 })
 
 const emptyDescription = computed(() => {
+  if (selectedTag.value) {
+    return 'Try another tag or clear the current filter.'
+  }
   switch (currentListView.value) {
     case 'favorites':
       return 'Mark important clips as favorites to keep them close.'
@@ -266,7 +370,7 @@ const emptyDescription = computed(() => {
 })
 
 async function loadClips() {
-  const page = await fetchClips(keyword.value.trim(), selectedType.value, currentListView.value)
+  const page = await fetchClips(keyword.value.trim(), selectedType.value, currentListView.value, selectedTag.value.trim())
   clips.value = page.items
   totalClips.value = page.total
 }
@@ -285,7 +389,9 @@ function backToListView() {
 
 async function openDetail(id: number) {
   detail.value = await fetchClip(id)
+  detailTagNames.value = detail.value.tags.map((tag) => tag.name)
   detailVisible.value = true
+  await ensureTagOptions()
 }
 
 async function copy(id: number) {
@@ -332,6 +438,82 @@ function resetSettings() {
   ElMessage.info('Defaults restored. Save to apply them.')
 }
 
+async function searchTagOptions(keywordValue: string) {
+  tagOptionsLoading.value = true
+  try {
+    const page = await fetchTags(keywordValue.trim())
+    tagOptions.value = page.items
+  } finally {
+    tagOptionsLoading.value = false
+  }
+}
+
+async function ensureTagOptions() {
+  if (!tagOptions.value.length) {
+    await searchTagOptions('')
+  }
+}
+
+function handleTagFilterVisible(visible: boolean) {
+  if (visible) {
+    ensureTagOptions().catch((error: Error) => ElMessage.error(error.message))
+  }
+}
+
+function handleDetailTagVisible(visible: boolean) {
+  if (visible) {
+    ensureTagOptions().catch((error: Error) => ElMessage.error(error.message))
+  }
+}
+
+function normalizeTagNames(names: string[]) {
+  return Array.from(
+    new Map(
+      names
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .map((name) => [name.toLowerCase(), name] as const)
+    ).values()
+  )
+}
+
+async function saveDetailTags() {
+  if (!detail.value) return
+
+  tagSaving.value = true
+  try {
+    const names = normalizeTagNames(detailTagNames.value)
+    const tags = await replaceClipTags(detail.value.id, names)
+    detailTagNames.value = tags.map((tag) => tag.name)
+    detail.value = { ...detail.value, tags }
+    ElMessage.success('Tags updated')
+    await ensureTagOptions()
+    await loadClips()
+    if (detail.value) {
+      detail.value = await fetchClip(detail.value.id)
+      detailTagNames.value = detail.value.tags.map((tag) => tag.name)
+    }
+  } finally {
+    tagSaving.value = false
+  }
+}
+
+function applyTagFilter(name: string) {
+  selectedTag.value = name
+  loadClips().catch((error: Error) => ElMessage.error(error.message))
+}
+
+function applyTagFilterFromDetail(name: string) {
+  selectedTag.value = name
+  detailVisible.value = false
+  loadClips().catch((error: Error) => ElMessage.error(error.message))
+}
+
+function clearTagFilter() {
+  selectedTag.value = ''
+  loadClips().catch((error: Error) => ElMessage.error(error.message))
+}
+
 function formatTime(value: string) {
   return value ? value.replace('T', ' ').slice(0, 19) : ''
 }
@@ -351,14 +533,20 @@ function shouldShowPreview(clip: ClipItem) {
 
 watch(activeView, (view) => {
   if (view === 'settings') {
-    loadSettings().catch((error) => ElMessage.error(error.message))
+    loadSettings().catch((error: Error) => ElMessage.error(error.message))
     return
   }
   lastListView.value = view
-  loadClips().catch((error) => ElMessage.error(error.message))
+  loadClips().catch((error: Error) => ElMessage.error(error.message))
+})
+
+watch(detailVisible, (visible) => {
+  if (!visible) {
+    detailTagNames.value = []
+  }
 })
 
 onMounted(() => {
-  loadClips().catch((error) => ElMessage.error(error.message))
+  loadClips().catch((error: Error) => ElMessage.error(error.message))
 })
 </script>
