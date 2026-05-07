@@ -1,0 +1,71 @@
+{
+  "name": "smartclip-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Electron desktop shell for SmartClip",
+  "main": "main.js",
+  "author": "SmartClip",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron .",
+    "dev:web": "set ELECTRON_RENDERER_URL=http://localhost:5173&& electron .",
+    "prepare:app": "node ./scripts/prepare-app.mjs",
+    "verify:layout": "node ./scripts/verify-layout.mjs",
+    "build:icon": "node ./scripts/create-icon.mjs",
+    "build:jre": "powershell -ExecutionPolicy Bypass -File ./scripts/build-jre.ps1",
+    "pack": "npm run verify:layout && node ./node_modules/electron-builder/cli.js --dir",
+    "dist": "npm run verify:layout && node ./node_modules/electron-builder/cli.js"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.smartclip.desktop",
+    "productName": "SmartClip",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "app/frontend-dist",
+        "to": "app/frontend-dist"
+      },
+      {
+        "from": "app/backend",
+        "to": "app/backend"
+      },
+      {
+        "from": "app/runtime",
+        "to": "app/runtime"
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "signExts": [
+        "!.exe"
+      ],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

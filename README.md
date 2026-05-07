@@ -1,207 +1,204 @@
 # SmartClip
 
-SmartClip 是一个 **本地优先（local-first）的 Windows 剪贴板文本历史管理工具**。它会在本机后台采集你复制过的文本内容，自动识别类型、去重统计，并提供一个电脑端 Web 界面用于搜索、收藏、查看详情和再次复制。
+SmartClip is a local-first Windows clipboard text history manager. It collects copied text on your machine, detects common text types, de-duplicates repeated content, and provides a desktop UI for search, favorites, detail viewing, tags, settings, and copying old content back to the system clipboard.
 
-`Local-first` `Windows` `Spring Boot` `Vue 3` `SQLite` `MIT License`
+`Local-first` `Windows` `Spring Boot` `Vue 3` `Electron` `SQLite` `MIT License`
 
-![SmartClip 桌面端历史页截图](docs/images/img.png)
+![SmartClip desktop history view](docs/images/img.png)
 
-## 为什么做 SmartClip
+## Features
 
-日常开发和办公中，我们经常复制 URL、SQL、命令、日志、接口地址、代码片段和临时文本。系统剪贴板通常只保留最后一次复制内容，刚刚复制过的东西很容易丢失。
+- Collects Windows clipboard text in the background.
+- Stores data locally in SQLite; no account, cloud service, MySQL, or PostgreSQL required.
+- Filters empty or very short text.
+- De-duplicates by content hash and tracks copy counts.
+- Records first copied time, last copied time, and copy events.
+- Detects URL, JSON, SQL, command, Java exception logs, file paths, code snippets, and plain text.
+- Provides history, favorites, frequent clips, and ignored clips views.
+- Supports keyword search, type filtering, tag filtering, details, copy-back, ignore, restore, and favorites.
+- Supports tag creation through clip tag editing.
+- Provides settings for listener status, polling interval, minimum saved text length, and sensitive-content ignore behavior.
+- Ships as an Electron desktop app with the Java backend and a slim JRE bundled.
 
-SmartClip 的目标是做一个轻量、可持续迭代、默认本地运行的剪贴板文本管理工具：不需要云服务，不需要登录，不需要安装 MySQL 或 PostgreSQL，数据保存在本机 SQLite 文件中。
+## Download
 
-## 功能特性
+For normal use, download the Windows installer from the GitHub Releases page:
 
-- 自动采集 Windows 系统剪贴板中的文本内容。
-- 过滤空文本和过短文本，减少低价值记录。
-- 使用内容哈希去重，相同内容不会重复新增，而是累计复制次数。
-- 记录首次复制时间、最后复制时间和复制事件流水。
-- 自动识别 URL、JSON、SQL、命令、Java 异常日志、文件路径、代码片段和普通文本。
-- 自动生成基础 `subType`、标题和标签，为后续智能整理打基础。
-- 支持历史、收藏、高频、忽略四种列表视图。
-- 支持关键词搜索、类型筛选、详情查看、再次复制、忽略和恢复。
-- 后端支持标签创建、删除、关联、替换和按标签过滤查询。
-- 支持设置监听开关、轮询间隔、最短保存长度和敏感内容忽略策略。
-- 使用 SQLite 单文件数据库和 Flyway migration，方便本地迁移和后续升级。
+```text
+SmartClip-Setup-1.0.0.exe
+```
 
-## 技术栈
+The release also includes:
 
-### 后端
+```text
+SmartClip-Setup-1.0.0.exe.sha256
+```
 
-- Java 17
-- Spring Boot 3.3.5
-- Spring Web
-- Spring Scheduling
-- Spring Validation
-- MyBatis-Plus
-- SQLite
-- Flyway
-- Lombok
+The installer is not code-signed yet, so Windows may show a security warning. This is expected for v1.0.0.
 
-### 前端
+## Data And Privacy
 
-- Vue 3
-- TypeScript
-- Vite
-- Element Plus
-- Axios
-- Pinia
+SmartClip is local-first. Clipboard history is stored on your machine and is not uploaded by the app.
 
-## 快速开始
+Desktop app data is stored under the current Windows user profile, for example:
 
-### 环境要求
+```text
+%APPDATA%\SmartClip\
+```
 
+The SQLite database is stored in that user-data area. Uninstalling the application does not necessarily delete user data; remove the user-data directory manually if you want a full cleanup.
+
+## Run From Source
+
+### Requirements
+
+- Windows
 - JDK 17
 - Maven 3.9+
-- Node.js 20+ 和 npm（仅在重新构建前端时需要）
+- Node.js 20+
+- npm
 
-### 启动本地服务
-
-在 Windows PowerShell 中执行：
+### Start Backend
 
 ```powershell
+cd E:\Documents\CodeSpace\forAI\SmartClip
 $env:JAVA_HOME='E:\TOOL\Env\Java\jdk-17.0.8'
 $env:Path="$env:JAVA_HOME\bin;$env:Path"
 mvn spring-boot:run
 ```
 
-启动后访问：
+The backend runs at:
 
 ```text
 http://localhost:8080
 ```
 
-### 打包运行
+### Start Frontend Development Server
 
 ```powershell
-$env:JAVA_HOME='E:\TOOL\Env\Java\jdk-17.0.8'
-$env:Path="$env:JAVA_HOME\bin;$env:Path"
-mvn package
-java -Djava.awt.headless=false -jar target\smartclip-0.1.0-SNAPSHOT.jar
-```
-
-`-Djava.awt.headless=false` 用于确保 Java AWT 可以访问 Windows 系统剪贴板。
-
-## 前端开发
-
-前端工程位于 `frontend` 目录。开发时可以使用 Vite 代理访问后端 API：
-
-```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-构建前端并写入后端静态资源目录：
+The Vite dev server proxies `/api` to the backend.
 
-```bash
+### Start Electron Development Shell
+
+```powershell
+cd desktop
+npm install
+npm run dev:web
+```
+
+This loads the Vite frontend in an Electron window and is the easiest mode for UI development.
+
+## Build Desktop App Locally
+
+Build the frontend and backend first:
+
+```powershell
+cd E:\Documents\CodeSpace\forAI\SmartClip
+$env:JAVA_HOME='E:\TOOL\Env\Java\jdk-17.0.8'
+$env:Path="$env:JAVA_HOME\bin;$env:Path"
+
 cd frontend
+npm install
 npm run build
-```
 
-构建产物会输出到：
-
-```text
-src/main/resources/static
-```
-
-## 测试与构建
-
-后端测试：
-
-```powershell
-mvn test
-```
-
-完整打包：
-
-```powershell
+cd ..
 mvn package
 ```
 
-前端构建：
+Prepare and package the Electron app:
 
-```bash
-cd frontend
-npm run build
+```powershell
+cd desktop
+npm install
+npm run prepare:app
+npm run build:jre
+npm run verify:layout
+npm run pack
 ```
 
-## 项目结构
+Run the unpacked desktop build:
+
+```text
+desktop\dist\win-unpacked\SmartClip.exe
+```
+
+Build the installer:
+
+```powershell
+npm run dist
+```
+
+The installer is generated at:
+
+```text
+desktop\dist\SmartClip-Setup-1.0.0.exe
+```
+
+## GitHub Release Build
+
+This repository includes a GitHub Actions workflow that builds the Windows installer and publishes it to GitHub Releases when a tag matching `v*` is pushed.
+
+Release flow:
+
+```powershell
+git tag v1.0.0
+git push origin master
+git push origin v1.0.0
+```
+
+The workflow builds:
+
+- Frontend static assets
+- Spring Boot backend jar
+- Slim JRE runtime
+- Electron Windows installer
+- SHA256 checksum file
+
+## Project Structure
 
 ```text
 SmartClip/
-├─ docs/                             # 项目文档与截图资源
-├─ frontend/                         # Vue 3 前端工程
-├─ src/main/java/com/smartclip/       # Spring Boot 后端源码
-├─ src/main/resources/db/migration/   # Flyway 数据库迁移脚本
-├─ src/main/resources/static/         # 前端构建后的静态资源
-├─ src/test/                          # 后端测试
-├─ data/                              # SQLite 数据文件目录
-├─ pom.xml                            # Maven 配置
-└─ README.md
+|-- desktop/                         # Electron desktop shell and packaging scripts
+|-- docs/                            # Project documentation and screenshots
+|-- frontend/                        # Vue 3 frontend
+|-- src/main/java/com/smartclip/      # Spring Boot backend source
+|-- src/main/resources/db/migration/ # Flyway migrations
+|-- src/main/resources/static/       # Built frontend assets served by Spring Boot
+|-- data/                            # Local development SQLite data
+|-- pom.xml                          # Maven configuration
+`-- README.md
 ```
 
-## 核心模块
+## Development Notes
 
-- 剪贴板监听：定时读取系统剪贴板文本，并避免程序主动复制造成重复采集。
-- 内容处理：负责文本预处理、敏感内容识别、类型识别、预览生成和哈希去重。
-- 历史管理：提供搜索、详情、再次复制、收藏、忽略、恢复和高频排序。
-- 设置管理：提供监听开关、轮询间隔、最短保存长度、敏感内容策略等配置。
-- Web 界面：提供桌面端历史列表、视图切换、搜索筛选和设置入口。
+- Do not commit local clipboard data or SQLite database files.
+- Do not commit `node_modules`, `target`, `frontend/dist`, or `desktop/dist`.
+- Frontend production builds must use relative asset paths (`./assets/...`) so Electron can load them from `file://`.
+- Java must run with AWT headless mode disabled so it can access the Windows clipboard.
 
-## 当前状态
+## FAQ
 
-SmartClip 当前已经完成 MVP 主链路，并包含部分增强能力：
+### Why does Windows show a warning when installing?
 
-- 自动采集文本
-- 基础类型识别
-- 去重与复制次数统计
-- 历史查询与详情查看
-- 再次复制到系统剪贴板
-- 收藏、高频和忽略视图
-- `subType` 细分、标题增强和自动基础标签
-- 后端标签 API
-- 本地 SQLite 持久化
-- Flyway 自动迁移
-- Vue 桌面端 Web 管理界面
+The v1.0.0 installer is not code-signed. Windows may warn about unknown publishers. This does not mean the app uploads data; it means the executable has no trusted signing certificate.
 
-暂未实现：
+### Does SmartClip upload my clipboard content?
 
-- 登录注册和多用户
-- 云同步
-- AI 分类或总结
-- 图片/OCR 识别
-- 系统托盘
-- 快捷键浮窗
-- Windows 安装包
+No. SmartClip stores clipboard history locally in SQLite.
 
-## 路线图
+### Can I run SmartClip without installing Java?
 
-- 增加 API 层集成测试，覆盖列表视图、设置和剪贴板操作接口。
-- 增加前端标签展示和标签管理交互。
-- 优化前端构建体积，按需引入 Element Plus 或做代码分包。
-- 增加一键启动脚本，降低本地启动成本。
-- 补充真实项目截图和发布说明。
-- 后续探索系统托盘、快捷键唤起和 Windows 安装包。
+Yes, the Electron release bundles a slim JRE.
 
-## 贡献
+### Can I use SmartClip on macOS or Linux?
 
-欢迎提交 issue、功能建议和 pull request。
-
-贡献时请注意：
-
-- 数据库结构变更必须新增 Flyway migration，不直接修改已发布的 migration。
-- 尽量保持本地优先和轻量部署原则。
-- 新增功能应补充必要测试或验证说明。
-- 不要在仓库中提交本地敏感数据或个人剪贴板内容。
-
-## 联系方式
-
-- 维护者：HengxingStu
-- 邮箱：hengxingstu@gmail.com
+Not in v1.0.0. This release targets Windows.
 
 ## License
 
-SmartClip 基于 MIT License 开源，详见 [LICENSE](LICENSE)。
+SmartClip is released under the MIT License. See [LICENSE](LICENSE).

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+
+app/backend/*
+!app/backend/.gitkeep
+
+app/frontend-dist/*
+!app/frontend-dist/.gitkeep
+
+app/runtime/**
+!app/runtime/.gitkeep

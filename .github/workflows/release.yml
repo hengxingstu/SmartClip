@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish
+        required: true
+        default: v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-release:
+    name: Build Windows release
+    runs-on: windows-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Test backend
+        run: mvn -q test
+
+      - name: Package backend
+        run: mvn -q package
+
+      - name: Build desktop installer
+        working-directory: desktop
+        run: |
+          npm ci
+          npm run prepare:app
+          npm run build:jre
+          npm run verify:layout
+          npm run dist
+
+      - name: Generate checksum
+        shell: powershell
+        run: |
+          $installer = "desktop\dist\SmartClip-Setup-1.0.0.exe"
+          if (!(Test-Path $installer)) {
+            throw "Installer was not found: $installer"
+          }
+          $hash = Get-FileHash $installer -Algorithm SHA256
+          "$($hash.Hash)  SmartClip-Setup-1.0.0.exe" | Out-File -Encoding ascii "$installer.sha256"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          name: SmartClip ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          body_path: CHANGELOG.md
+          files: |
+            desktop/dist/SmartClip-Setup-1.0.0.exe
+            desktop/dist/SmartClip-Setup-1.0.0.exe.sha256

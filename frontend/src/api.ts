@@ -51,8 +51,20 @@ export interface AppSettings {
   ignoreSensitiveEnabled: boolean
 }
 
+declare global {
+  interface Window {
+    smartclipDesktop?: {
+      isDesktop?: boolean
+      backendBaseUrl?: string
+    }
+  }
+}
+
+const desktopBaseUrl = window.smartclipDesktop?.backendBaseUrl?.replace(/\/$/, '')
+const apiBaseUrl = desktopBaseUrl ? `${desktopBaseUrl}/api` : '/api'
+
 const client = axios.create({
-  baseURL: '/api'
+  baseURL: apiBaseUrl
 })
 
 async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>): Promise<T> {

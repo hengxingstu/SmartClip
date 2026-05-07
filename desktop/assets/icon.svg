@@ -1,0 +1,13 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">SmartClip app icon</title>
+  <desc id="desc">A clean outlined clipboard icon with highlighted text snippets.</desc>
+  <rect width="512" height="512" rx="112" fill="#F7FBFF"/>
+  <path d="M166 122h180c24.3 0 44 19.7 44 44v230c0 24.3-19.7 44-44 44H166c-24.3 0-44-19.7-44-44V166c0-24.3 19.7-44 44-44Z" stroke="#2F5FCE" stroke-width="24" stroke-linejoin="round"/>
+  <path d="M208 86h96c14.4 0 26 11.6 26 26v42H182v-42c0-14.4 11.6-26 26-26Z" fill="#F7FBFF" stroke="#2F5FCE" stroke-width="24" stroke-linejoin="round"/>
+  <path d="M224 126h64" stroke="#2F5FCE" stroke-width="16" stroke-linecap="round"/>
+  <path d="M186 216h140" stroke="#2F5FCE" stroke-width="22" stroke-linecap="round"/>
+  <path d="M186 278h100" stroke="#FFB84D" stroke-width="22" stroke-linecap="round"/>
+  <path d="M186 340h140" stroke="#2F5FCE" stroke-width="22" stroke-linecap="round"/>
+  <path d="M326 252l64 58-64 58" stroke="#FFB84D" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M390 310H258" stroke="#FFB84D" stroke-width="24" stroke-linecap="round"/>
+</svg>

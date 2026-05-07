@@ -13,7 +13,7 @@
 
     <groupId>com.smartclip</groupId>
     <artifactId>smartclip</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>SmartClip</name>
     <description>Local-first intelligent clipboard text manager</description>
 
